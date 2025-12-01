@@ -1,12 +1,15 @@
 import { Container } from "@mui/material";
 import ProductGridClient from "@/components/product/ProductGridClient";
 
+// Mark this route as dynamic since we use searchParams
+export const dynamic = 'force-dynamic';
+
 async function getProducts() {
   const url = process.env.NEXT_PUBLIC_API_URL;
   
   try {
     const response = await fetch(`${url}/products`, {
-      cache: 'no-store', // Ensure fresh data on each request
+      cache: 'no-store', // Force dynamic rendering
     });
     
     if (!response.ok) {
