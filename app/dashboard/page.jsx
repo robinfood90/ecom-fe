@@ -237,9 +237,6 @@ export default function DashboardPage() {
     <Box sx={{ minHeight: "100vh", bgcolor: "#f5f5f5" }}>
       <AppBar position="static" sx={{ bgcolor: "#4d4d4d" }}>
         <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Product Dashboard
-          </Typography>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Chip
               label={user?.role || "User"}
