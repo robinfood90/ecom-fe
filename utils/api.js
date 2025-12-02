@@ -62,3 +62,10 @@ export const productAPI = {
     }),
 };
 
+// Request API functions
+export const requestAPI = {
+  getAll: () => apiRequest("/requests"),
+  
+  getById: (id) => apiRequest(`/requests/${id}`),
+};
+

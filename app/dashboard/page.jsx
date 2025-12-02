@@ -28,6 +28,8 @@ import {
   Menu,
   MenuItem,
   Chip,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -37,19 +39,24 @@ import {
   Logout as LogoutIcon,
 } from "@mui/icons-material";
 import { useAuth } from "@/context/AuthContext";
-import { productAPI } from "@/utils/api";
+import { productAPI, requestAPI } from "@/utils/api";
 
 export default function DashboardPage() {
   const { user, logout, isAuthenticated } = useAuth();
   const router = useRouter();
+  const [currentTab, setCurrentTab] = useState(0);
   const [products, setProducts] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [requestsLoading, setRequestsLoading] = useState(false);
   const [error, setError] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [requestViewDialogOpen, setRequestViewDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedRequest, setSelectedRequest] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     price: "",
@@ -66,7 +73,15 @@ export default function DashboardPage() {
       return;
     }
     fetchProducts();
+    fetchRequests();
   }, [isAuthenticated, router]);
+
+  useEffect(() => {
+    if (currentTab === 1 && requests.length === 0 && !requestsLoading) {
+      fetchRequests();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTab]);
 
   const fetchProducts = async () => {
     try {
@@ -82,6 +97,20 @@ export default function DashboardPage() {
     }
   };
 
+  const fetchRequests = async () => {
+    try {
+      setRequestsLoading(true);
+      setError("");
+      const data = await requestAPI.getAll();
+      setRequests(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err.message || "Failed to load requests");
+      console.error("Error fetching requests:", err);
+    } finally {
+      setRequestsLoading(false);
+    }
+  };
+
   const handleView = async (id) => {
     try {
       const product = await productAPI.getById(id);
@@ -89,6 +118,16 @@ export default function DashboardPage() {
       setViewDialogOpen(true);
     } catch (err) {
       setError(err.message || "Failed to load product details");
+    }
+  };
+
+  const handleViewRequest = async (id) => {
+    try {
+      const request = await requestAPI.getById(id);
+      setSelectedRequest(request);
+      setRequestViewDialogOpen(true);
+    } catch (err) {
+      setError(err.message || "Failed to load request details");
     }
   };
 
@@ -237,6 +276,9 @@ export default function DashboardPage() {
     <Box sx={{ minHeight: "100vh", bgcolor: "#f5f5f5" }}>
       <AppBar position="static" sx={{ bgcolor: "#4d4d4d" }}>
         <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            Dashboard
+          </Typography>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Chip
               label={user?.role || "User"}
@@ -263,128 +305,242 @@ export default function DashboardPage() {
       </AppBar>
 
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
-          <Typography variant="h4" component="h1">
-            Products Management
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleAddNew}
-            sx={{ bgcolor: "#4d4d4d", "&:hover": { bgcolor: "#333" } }}
-          >
-            Add Product
-          </Button>
+        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
+          <Tabs value={currentTab} onChange={(e, newValue) => setCurrentTab(newValue)}>
+            <Tab label="Products" />
+            <Tab label="Requests" />
+          </Tabs>
         </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
-            {error}
-          </Alert>
+        {currentTab === 0 && (
+          <>
+            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleAddNew}
+                sx={{ bgcolor: "#4d4d4d", "&:hover": { bgcolor: "#333" } }}
+              >
+                Add Product
+              </Button>
+            </Box>
+
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
+                {error}
+              </Alert>
+            )}
+
+            {loading ? (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "#e0e0e0" }}>
+                      <TableCell><strong>Image</strong></TableCell>
+                      <TableCell><strong>Name</strong></TableCell>
+                      <TableCell><strong>Price</strong></TableCell>
+                      <TableCell><strong>Category</strong></TableCell>
+                      <TableCell><strong>Description</strong></TableCell>
+                      <TableCell><strong>Actions</strong></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {products.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                          <Typography color="text.secondary">
+                            No products found
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      products.map((product) => (
+                        <TableRow key={product.id} hover>
+                          <TableCell>
+                            {product.image ? (
+                              <Box
+                                component="img"
+                                src={`${process.env.NEXT_PUBLIC_URL || ""}/${product.image}`}
+                                alt={product.name}
+                                sx={{
+                                  width: 60,
+                                  height: 60,
+                                  objectFit: "cover",
+                                  borderRadius: 1,
+                                }}
+                                onError={(e) => {
+                                  e.target.style.display = "none";
+                                }}
+                              />
+                            ) : (
+                              <Box
+                                sx={{
+                                  width: 60,
+                                  height: 60,
+                                  bgcolor: "#e0e0e0",
+                                  borderRadius: 1,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                <Typography variant="caption" color="text.secondary">
+                                  No Image
+                                </Typography>
+                              </Box>
+                            )}
+                          </TableCell>
+                          <TableCell>{product.name}</TableCell>
+                          <TableCell>${parseFloat(product.price || 0).toFixed(2)}</TableCell>
+                          <TableCell>{product.category || "-"}</TableCell>
+                          <TableCell>
+                            {product.description
+                              ? product.description.length > 50
+                                ? `${product.description.substring(0, 50)}...`
+                                : product.description
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleView(product.id)}
+                              color="primary"
+                            >
+                              <VisibilityIcon />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEdit(product)}
+                              color="warning"
+                            >
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteClick(product)}
+                              color="error"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </>
         )}
 
-        {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: "#e0e0e0" }}>
-                  <TableCell><strong>Image</strong></TableCell>
-                  <TableCell><strong>Name</strong></TableCell>
-                  <TableCell><strong>Price</strong></TableCell>
-                  <TableCell><strong>Category</strong></TableCell>
-                  <TableCell><strong>Description</strong></TableCell>
-                  <TableCell><strong>Actions</strong></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {products.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                      <Typography color="text.secondary">
-                        No products found
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  products.map((product) => (
-                    <TableRow key={product.id} hover>
-                      <TableCell>
-                        {product.image ? (
-                          <Box
-                            component="img"
-                            src={`${process.env.NEXT_PUBLIC_URL || ""}/${product.image}`}
-                            alt={product.name}
-                            sx={{
-                              width: 60,
-                              height: 60,
-                              objectFit: "cover",
-                              borderRadius: 1,
-                            }}
-                            onError={(e) => {
-                              e.target.style.display = "none";
-                            }}
-                          />
-                        ) : (
-                          <Box
-                            sx={{
-                              width: 60,
-                              height: 60,
-                              bgcolor: "#e0e0e0",
-                              borderRadius: 1,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <Typography variant="caption" color="text.secondary">
-                              No Image
-                            </Typography>
-                          </Box>
-                        )}
-                      </TableCell>
-                      <TableCell>{product.name}</TableCell>
-                      <TableCell>${parseFloat(product.price || 0).toFixed(2)}</TableCell>
-                      <TableCell>{product.category || "-"}</TableCell>
-                      <TableCell>
-                        {product.description
-                          ? product.description.length > 50
-                            ? `${product.description.substring(0, 50)}...`
-                            : product.description
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleView(product.id)}
-                          color="primary"
-                        >
-                          <VisibilityIcon />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEdit(product)}
-                          color="warning"
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeleteClick(product)}
-                          color="error"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
+        {currentTab === 1 && (
+          <>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
+                {error}
+              </Alert>
+            )}
+
+            {requestsLoading ? (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "#e0e0e0" }}>
+                      <TableCell><strong>Product</strong></TableCell>
+                      <TableCell><strong>Buyer Name</strong></TableCell>
+                      <TableCell><strong>Email</strong></TableCell>
+                      <TableCell><strong>Phone</strong></TableCell>
+                      <TableCell><strong>Role</strong></TableCell>
+                      <TableCell><strong>Quantity</strong></TableCell>
+                      <TableCell><strong>Created</strong></TableCell>
+                      <TableCell><strong>Actions</strong></TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {requests.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                          <Typography color="text.secondary">
+                            No requests found
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      requests.map((request) => (
+                        <TableRow key={request.id} hover>
+                          <TableCell>
+                            {request.product ? (
+                              <Box>
+                                <Typography variant="body2" fontWeight="medium">
+                                  {request.product.name || "N/A"}
+                                </Typography>
+                                {request.product.image && (
+                                  <Box
+                                    component="img"
+                                    src={`${process.env.NEXT_PUBLIC_URL || ""}/${request.product.image}`}
+                                    alt={request.product.name}
+                                    sx={{
+                                      width: 50,
+                                      height: 50,
+                                      objectFit: "cover",
+                                      borderRadius: 1,
+                                      mt: 1,
+                                    }}
+                                    onError={(e) => {
+                                      e.target.style.display = "none";
+                                    }}
+                                  />
+                                )}
+                              </Box>
+                            ) : (
+                              "-"
+                            )}
+                          </TableCell>
+                          <TableCell>{request.name_buyer}</TableCell>
+                          <TableCell>{request.email}</TableCell>
+                          <TableCell>{request.phone_number}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={request.role}
+                              size="small"
+                              color={
+                                request.role === "admin"
+                                  ? "error"
+                                  : request.role === "staff"
+                                  ? "warning"
+                                  : "default"
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>{request.quantity}</TableCell>
+                          <TableCell>
+                            {new Date(request.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleViewRequest(request.id)}
+                              color="primary"
+                            >
+                              <VisibilityIcon />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </>
         )}
       </Container>
 
@@ -540,6 +696,118 @@ export default function DashboardPage() {
           >
             Delete
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Request View Dialog */}
+      <Dialog
+        open={requestViewDialogOpen}
+        onClose={() => setRequestViewDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Request Details</DialogTitle>
+        <DialogContent>
+          {selectedRequest && (
+            <Box sx={{ pt: 2 }}>
+              <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+                Quote Request Information
+              </Typography>
+
+              {selectedRequest.product && (
+                <Box sx={{ mb: 3, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                    Product Details
+                  </Typography>
+                  {selectedRequest.product.image && (
+                    <Box
+                      component="img"
+                      src={`${process.env.NEXT_PUBLIC_URL || ""}/${selectedRequest.product.image}`}
+                      alt={selectedRequest.product.name}
+                      sx={{
+                        width: "100%",
+                        maxHeight: 200,
+                        objectFit: "contain",
+                        mb: 2,
+                        borderRadius: 1,
+                      }}
+                    />
+                  )}
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Product Name:</strong> {selectedRequest.product.name}
+                  </Typography>
+                  {selectedRequest.product.price && (
+                    <Typography variant="body1" gutterBottom>
+                      <strong>Price:</strong> $
+                      {parseFloat(selectedRequest.product.price).toFixed(2)}
+                    </Typography>
+                  )}
+                  {selectedRequest.product.category && (
+                    <Typography variant="body1" gutterBottom>
+                      <strong>Category:</strong> {selectedRequest.product.category}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ mt: 2 }}>
+                Buyer Information
+              </Typography>
+              <Typography variant="body1" color="text.secondary" gutterBottom>
+                <strong>Name:</strong> {selectedRequest.name_buyer}
+              </Typography>
+              <Typography variant="body1" color="text.secondary" gutterBottom>
+                <strong>Email:</strong> {selectedRequest.email}
+              </Typography>
+              <Typography variant="body1" color="text.secondary" gutterBottom>
+                <strong>Phone:</strong> {selectedRequest.phone_number}
+              </Typography>
+              <Typography variant="body1" color="text.secondary" gutterBottom>
+                <strong>Role:</strong>{" "}
+                <Chip
+                  label={selectedRequest.role}
+                  size="small"
+                  color={
+                    selectedRequest.role === "admin"
+                      ? "error"
+                      : selectedRequest.role === "staff"
+                      ? "warning"
+                      : "default"
+                  }
+                />
+              </Typography>
+
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ mt: 2 }}>
+                Request Details
+              </Typography>
+              <Typography variant="body1" color="text.secondary" gutterBottom>
+                <strong>Quantity:</strong> {selectedRequest.quantity}
+              </Typography>
+              {selectedRequest.note && (
+                <Typography variant="body1" color="text.secondary" gutterBottom>
+                  <strong>Note:</strong> {selectedRequest.note}
+                </Typography>
+              )}
+
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ mt: 2 }}>
+                Timestamps
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                <strong>Request ID:</strong> {selectedRequest.id}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                <strong>Created:</strong>{" "}
+                {new Date(selectedRequest.created_at).toLocaleString()}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                <strong>Last Updated:</strong>{" "}
+                {new Date(selectedRequest.last_updated).toLocaleString()}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRequestViewDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>
