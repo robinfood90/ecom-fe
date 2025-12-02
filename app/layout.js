@@ -2,7 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { SearchProvider } from "../context/SearchContext";
+import { Providers } from "@/components/providers/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,13 +31,13 @@ export default function RootLayout({ children }) {
           margin: 0,
         }}
       >
-        <SearchProvider>
+        <Providers>
           <Header />
           <main className="flex-grow">
             {children}
           </main>
           <Footer />
-        </SearchProvider>
+        </Providers>
       </body>
     </html>
   );
