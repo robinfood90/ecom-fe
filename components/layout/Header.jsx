@@ -20,15 +20,6 @@ export default function Header() {
           <img src="/mock_EGM_Logo.png" alt="EGM Mock Logo" width={70} height={70} />
           <Navbar />
         </section>
-
-        <form onSubmit={(e) => e.preventDefault()}>
-          <input
-            className="border text-black border-gray-300 px-4 py-2 rounded w-64 focus:outline-none"
-            type="text"
-            placeholder="🔍︎ Search product"
-            onChange={handleInput}
-          />
-        </form>
       </div>
     </header>
   );
