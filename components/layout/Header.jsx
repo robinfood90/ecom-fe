@@ -1,13 +1,19 @@
 'use client';
+
 import Navbar from "./Navbar";
-import { useSearch } from "@/context/SearchContext"
+import SearchBar from "../SearchBar";
+import { usePathname } from "next/navigation";
 
 export default function Header() {
-  const { setSearchKeyword } = useSearch();
+  const pathname = usePathname();
 
-  const handleInput = (e) => {
-    setSearchKeyword(e.target.value);
-  };
+  // Hide ENTIRE header on dashboard pages
+  const hideHeader = pathname.startsWith("/dashboard");
+  if (hideHeader) return null;
+
+  // Show SearchBar ONLY on /product and /product/*
+  const showSearch =
+    pathname === "/product" || pathname.startsWith("/product/");
 
   return (
     <header id="header">
@@ -17,9 +23,13 @@ export default function Header() {
 
       <div className="flex items-center justify-between px-6 py-4">
         <section className="flex items-center gap-8">
-          <img src="/mock_EGM_Logo.png" alt="EGM Mock Logo" width={70} height={70} />
+          <img src="/mock_EGM_Logo.png" width={70} height={70} />
+
           <Navbar />
         </section>
+
+        {/* SearchBar only on product pages */}
+        {showSearch && <SearchBar />}
       </div>
     </header>
   );
